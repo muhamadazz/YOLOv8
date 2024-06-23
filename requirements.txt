@@ -1,2 +1,3 @@
-ultralytics==8.0.0
-opencv-python==4.5.5.64 
+streamlit==1.21.0  # Versi terbaru atau sesuai dengan kebutuhan Anda
+ultralytics==8.0.0  # Sesuaikan versi dengan yang Anda gunakan
+opencv-python-headless==4.5.5.64  # Versi terbaru atau sesuai dengan kebutuhan Anda
