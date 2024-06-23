@@ -1,63 +1,63 @@
+import streamlit as st
 from ultralytics import YOLO
 import cv2
-import time
+import tempfile
+import os
 
 def detect_objects_in_image(image_path, model_path="best1.pt"):
-    # Load model
     model = YOLO(model_path)
-    
-    # Load image
     image = cv2.imread(image_path)
     if image is None:
-        raise ValueError("Image not found or unable to read.")
-    
-    # Predict
-    result = model.predict(image, show=True)
-    
-    # Display the result
-    cv2.imshow("Detection", result[0].plot())
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        st.error("Image not found or unable to read.")
+        return
+    result = model.predict(image, show=False)
+    result_image = result[0].plot()
+    return result_image
 
 def detect_objects_in_video(video_path, model_path="best1.pt"):
-    # Load model
     model = YOLO(model_path)
-    
-    # Load video
     cam = cv2.VideoCapture(video_path)
     if not cam.isOpened():
-        raise ValueError("Error opening video stream or file.")
-    
+        st.error("Error opening video stream or file.")
+        return
+
+    frames = []
     while True:
         ret, image = cam.read()
         if not ret:
             break
-        
-        _time_mulai = time.time()
         result = model.predict(image, show=False)
-        
-        # Display the result
         result_image = result[0].plot()
-        cv2.imshow("Detection", result_image)
-        print("Detection time:", time.time() - _time_mulai)
-        
-        _key = cv2.waitKey(1)
-        if _key == ord('q'):
-            break
-    
+        frames.append(result_image)
     cam.release()
-    cv2.destroyAllWindows()
+    return frames
 
-def main():
-    choice = input("Enter 'image' to detect objects in an image or 'video' to detect objects in a video: ").strip().lower()
-    if choice == 'image':
-        image_path = input("Enter the path to the image: ").strip()
-        detect_objects_in_image(image_path)
-    elif choice == 'video':
-        video_path = input("Enter the path to the video: ").strip()
-        detect_objects_in_video(video_path)
-    else:
-        print("Invalid choice. Please enter 'image' or 'video'.")
+st.title("Object Detection using YOLOv8")
 
-if __name__ == "__main__":
-    main()
+choice = st.radio("Choose input type:", ('Image', 'Video'))
+
+model_path = "best1.pt"
+
+if choice == 'Image':
+    image_file = st.file_uploader("Upload an Image", type=['jpg', 'jpeg', 'png'])
+    if image_file is not None:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(image_file.read())
+            temp_path = temp_file.name
+        result_image = detect_objects_in_image(temp_path, model_path)
+        if result_image is not None:
+            st.image(result_image, caption='Detected Objects', use_column_width=True)
+        os.remove(temp_path)
+
+elif choice == 'Video':
+    video_file = st.file_uploader("Upload a Video", type=['mp4', 'avi', 'mov'])
+    if video_file is not None:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(video_file.read())
+            temp_path = temp_file.name
+        frames = detect_objects_in_video(temp_path, model_path)
+        if frames:
+            st.write("Detected Objects in Video:")
+            for frame in frames:
+                st.image(frame, use_column_width=True)
+        os.remove(temp_path)
