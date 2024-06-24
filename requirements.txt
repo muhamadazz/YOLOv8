@@ -1,2 +1,6 @@
-ultralytics==8.0.0  # Sesuaikan versi dengan yang Anda gunakan
-opencv-python-headless==4.5.5.64  # Versi terbaru atau sesuai dengan kebutuhan Anda
+ultralytics
+streamlit
+opencv-python-headless
+numpy
+Pillow
+torch
