@@ -1,63 +1,54 @@
 import streamlit as st
 from ultralytics import YOLO
 import cv2
-import tempfile
-import os
+import numpy as np
+import torch
+from PIL import Image
 
-def detect_objects_in_image(image_path, model_path="best1.pt"):
-    model = YOLO(model_path)
-    image = cv2.imread(image_path)
-    if image is None:
-        st.error("Image not found or unable to read.")
-        return
-    result = model.predict(image, show=False)
-    result_image = result[0].plot()
-    return result_image
+# Initialize the model
+model = YOLO("model.pt")
 
-def detect_objects_in_video(video_path, model_path="best1.pt"):
-    model = YOLO(model_path)
-    cam = cv2.VideoCapture(video_path)
-    if not cam.isOpened():
-        st.error("Error opening video stream or file.")
-        return
+# Check if CUDA is available and move the model to GPU if it is
+if torch.cuda.is_available():
+    model.to('cuda')
 
-    frames = []
-    while True:
-        ret, image = cam.read()
-        if not ret:
-            break
-        result = model.predict(image, show=False)
-        result_image = result[0].plot()
-        frames.append(result_image)
-    cam.release()
-    return frames
+def process_image(uploaded_image):
+    # Convert PIL Image to an OpenCV image
+    image = np.array(uploaded_image)
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-st.title("Object Detection using YOLOv8")
+    # Resize the image to a smaller size for faster processing
+    image_resized = cv2.resize(image, (640, 480))
 
-choice = st.radio("Choose input type:", ('Image', 'Video'))
+    # Perform prediction
+    results = model.predict(image_resized)
 
-model_path = "best1.pt"
+    # Annotate the image
+    for result in results:
+        for bbox, cls, conf in zip(result.boxes.xyxy, result.boxes.cls, result.boxes.conf):
+            x1, y1, x2, y2 = map(int, bbox)
+            label = result.names[int(cls)]
+            confidence = float(conf)
+            cv2.rectangle(image_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(image_resized, f'{label} {confidence:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-if choice == 'Image':
-    image_file = st.file_uploader("Upload an Image", type=['jpg', 'jpeg', 'png'])
-    if image_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            temp_file.write(image_file.read())
-            temp_path = temp_file.name
-        result_image = detect_objects_in_image(temp_path, model_path)
-        if result_image is not None:
-            st.image(result_image, caption='Detected Objects', use_column_width=True)
-        os.remove(temp_path)
+    # Convert back to RGB for display in Streamlit
+    image_resized = cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB)
+    return image_resized
 
-elif choice == 'Video':
-    video_file = st.file_uploader("Upload a Video", type=['mp4', 'avi', 'mov'])
-    if video_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            temp_file.write(video_file.read())
-            temp_path = temp_file.name
-        frames = detect_objects_in_video(temp_path, model_path)
-        if frames:
-            st.write("Detected Objects in Video:")
-            for frame in frames:
-                st.image(frame, use_column_width=True)
-        os.remove(temp_path)
+st.title("Face Expression Recognition")
+st.write("Upload an image to detect face expressions")
+
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    # Convert the uploaded file to a PIL image
+    image = Image.open(uploaded_file)
+    
+    st.image(image, caption='Uploaded Image', use_column_width=True)
+    st.write("")
+    st.write("Detecting face expressions...")
+
+    # Process the image and display the result
+    processed_image = process_image(image)
+    st.image(processed_image, caption='Processed Image', use_column_width=True)
