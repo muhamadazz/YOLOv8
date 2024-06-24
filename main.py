@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 
 # Initialize the model
-model = YOLO("best1.pt")
+model = YOLO("model.pt")
 
 # Check if CUDA is available and move the model to GPU if it is
 if torch.cuda.is_available():
